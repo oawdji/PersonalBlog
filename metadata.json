@@ -1,0 +1,8 @@
+{
+  "name": "GreenGlue Blog",
+  "description": "A elegant light-green themed technical blog with markdown publishing, GitHub contribution activity heatmap, tech-stack wall, search, post archives, and dark mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
