@@ -1,6 +1,6 @@
 import React from 'react';
 import { Article } from '../types';
-import { Calendar, Eye, Hash, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { Calendar, Eye, Hash, ChevronRight, FileText } from 'lucide-react';
 
 interface ArticleCardProps {
   key?: string;
@@ -12,36 +12,32 @@ interface ArticleCardProps {
 export function ArticleCard({ article, onSelect, onTagClick }: ArticleCardProps) {
 
   return (
-    <article 
+    <article
       onClick={() => onSelect(article.id)}
       className="group relative flex flex-col sm:flex-row gap-5 p-5 bg-white dark:bg-zinc-950/80 border border-zinc-200/60 dark:border-zinc-900 rounded-2xl hover:border-emerald-500/30 dark:hover:border-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/[0.02] cursor-pointer transition-all duration-300"
     >
-      {/* Article Cover Image (Loves Unsplash) */}
-      {article.coverImage && (
-        <div className="w-full sm:w-44 h-28 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shrink-0 relative">
-          <img 
-            src={article.coverImage} 
-            alt={article.title} 
+      {/* Article Cover Image or Gradient Placeholder */}
+      <div className="w-full sm:w-44 h-28 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shrink-0">
+        {article.coverImage ? (
+          <img
+            src={article.coverImage}
+            alt={article.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             referrerPolicy="no-referrer"
             loading="lazy"
           />
-          <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/50 text-white font-semibold text-[10px] uppercase tracking-wider backdrop-blur-sm">
-            {article.category}
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-500/15 to-teal-500/15 dark:from-emerald-500/10 dark:to-teal-500/10 flex items-center justify-center">
+            <FileText size={28} className="text-emerald-400/50 dark:text-emerald-500/30" />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Article Meta */}
       <div className="flex-1 flex flex-col justify-between min-w-0">
         <div>
           {/* Header Metadata */}
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono mb-2">
-            {!article.coverImage && (
-              <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400 font-semibold uppercase text-[10px]">
-                {article.category}
-              </span>
-            )}
             <span className="flex items-center gap-1">
               <Calendar size={12} className="text-zinc-400" />
               {article.createTime.split(' ')[0]}
@@ -63,14 +59,14 @@ export function ArticleCard({ article, onSelect, onTagClick }: ArticleCardProps)
           </p>
         </div>
 
-        {/* Tags with click trigger */}
+        {/* Tags */}
         <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-zinc-100/50 dark:border-zinc-900/50">
           <div className="flex flex-wrap gap-1.5 max-w-[80%]">
             {article.tags.map((tag) => (
               <span
                 key={tag}
                 onClick={(e) => {
-                  e.stopPropagation(); // prevent card click select article
+                  e.stopPropagation();
                   onTagClick(tag);
                 }}
                 className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-100/60 dark:bg-zinc-900 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 transition-colors cursor-pointer"

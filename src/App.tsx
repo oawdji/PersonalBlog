@@ -76,7 +76,11 @@ export default function App() {
   }, []);
 
   // --- 3. FILTER & NAVIGATION STATES ---
-  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
+  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(() => {
+    // 从 URL 参数中读取文章 ID，支持新窗口打开
+    const params = new URLSearchParams(window.location.search);
+    return params.get('article');
+  });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -86,7 +90,7 @@ export default function App() {
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [isAboutMode, setIsAboutMode] = useState<boolean>(false);
 
-  const postsPerPage = 3;
+  const postsPerPage = 5;
 
   // Reset all filters
   const handleResetFilters = () => {
@@ -106,11 +110,10 @@ export default function App() {
     setIsAdminMode(false);
   };
 
-  // Nav to detail page
+  // Nav to detail page —— 在新窗口中打开
   const handleSelectArticle = (id: string) => {
-    setSelectedArticleId(id);
-    setIsAdminMode(false);
-    setIsAboutMode(false);
+    const url = `${window.location.origin}${window.location.pathname}?article=${encodeURIComponent(id)}`;
+    window.open(url, '_blank');
   };
 
   // Tag filter trigger

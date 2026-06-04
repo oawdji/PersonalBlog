@@ -72,7 +72,7 @@ export function AboutView({ profile, onBack }: AboutViewProps) {
             </div>
             <div className="flex items-center gap-1.5 hover:text-zinc-800 transition-colors">
               <Mail size={13} className="text-emerald-500" />
-              <a href="mailto:greeglue89@gmail.com">greeglue89@gmail.com</a>
+              <span>greeglue89@gmail.com</span>
             </div>
             <div className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors group">
               <Github size={13} className="text-emerald-500 group-hover:scale-105" />

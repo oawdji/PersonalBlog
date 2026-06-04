@@ -174,3 +174,25 @@ export async function verifyToken(): Promise<boolean> {
 export function logout(): void {
   clearToken();
 }
+
+// ---- 上传 API ----
+
+/** 上传封面图片，返回可访问的 URL */
+export async function uploadCoverImage(file: File): Promise<{ url: string }> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}/upload`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: '上传失败' }));
+    throw new Error(body.error || `上传失败 (${res.status})`);
+  }
+
+  return res.json();
+}

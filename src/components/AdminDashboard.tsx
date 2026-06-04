@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import { Article, BloggerProfile, VisitorStats, TechItem } from '../types';
+import { uploadCoverImage } from '../api/client';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import {
   Plus, Edit, Trash2, Save, FileText, Layout, Users,
   Eye, CheckCircle, HelpCircle, ArrowLeft, Image, FileEdit,
-  Tag, Compass, Check, AlertTriangle, EyeOff, Sparkles, User, Github, Sparkle
+  Tag, Compass, Check, AlertTriangle, EyeOff, Sparkles, User, Github, Sparkle, Upload, X
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -50,6 +51,25 @@ export function AdminDashboard({
   const [formCategory, setFormCategory] = useState('');
   const [formTags, setFormTags] = useState('');
   const [formStatus, setFormStatus] = useState<'published' | 'draft'>('published');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** 选择本地图片上传 */
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const result = await uploadCoverImage(file);
+      setFormCoverImage(result.url);
+    } catch (err: any) {
+      alert(err.message || '上传失败');
+    } finally {
+      setUploading(false);
+      // 重置 input 以便同一文件可重复选
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const [editorPreviewMode, setEditorPreviewMode] = useState<boolean>(true); // Split view or Write only
 
@@ -448,7 +468,6 @@ export function AdminDashboard({
                 <thead className="bg-zinc-50/50 dark:bg-zinc-900/30">
                   <tr className="font-mono text-zinc-500 dark:text-zinc-450 uppercase text-[10px]">
                     <th scope="col" className="px-6 py-3.5 text-left font-bold">标题 & 摘要</th>
-                    <th scope="col" className="px-6 py-3.5 text-left font-bold">分类名</th>
                     <th scope="col" className="px-6 py-3.5 text-left font-bold">发布状态</th>
                     <th scope="col" className="px-6 py-3.5 text-left font-bold">创建时刻</th>
                     <th scope="col" className="px-6 py-3.5 text-left font-bold">累计 PV</th>
@@ -468,11 +487,6 @@ export function AdminDashboard({
                           </span>
                           <span className="text-zinc-400 text-xs truncate mt-0.5">{art.summary}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-300">
-                          {art.category}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {art.status === 'published' ? (
@@ -537,7 +551,7 @@ export function AdminDashboard({
                   ))}
                   {articles.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-20 text-center text-zinc-400 font-mono text-xs">
+                      <td colSpan={5} className="py-20 text-center text-zinc-400 font-mono text-xs">
                         暂无文章数据。点击右上角“发布新文章”按钮以录入内容。
                       </td>
                     </tr>
@@ -605,15 +619,51 @@ export function AdminDashboard({
 
               <div>
                 <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1 flex items-center gap-1">
-                  <Image size={12} /> 封面图 URL
+                  <Image size={12} /> 封面图片
                 </label>
-                <input
-                  type="url"
-                  placeholder="可从 Unsplash / 任何外部图床导入..."
-                  value={formCoverImage}
-                  onChange={(e) => setFormCoverImage(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs sm:text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleCoverUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="shrink-0 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs text-zinc-600 hover:text-emerald-600 hover:border-emerald-500/30 disabled:opacity-50 cursor-pointer transition-colors flex items-center gap-1.5"
+                  >
+                    {uploading ? (
+                      <><span className="w-3 h-3 border border-emerald-500 border-t-transparent rounded-full animate-spin" /> 上传中...</>
+                    ) : (
+                      <><Upload size={13} /> 本地上传</>
+                    )}
+                  </button>
+                  <input
+                    type="url"
+                    placeholder="或粘贴外部图片 URL..."
+                    value={formCoverImage}
+                    onChange={(e) => setFormCoverImage(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs sm:text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                  {formCoverImage && (
+                    <button
+                      type="button"
+                      onClick={() => setFormCoverImage('')}
+                      className="shrink-0 p-1.5 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer transition-colors"
+                      title="清除封面图"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {formCoverImage && (
+                  <div className="mt-2 w-full h-24 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100">
+                    <img src={formCoverImage} alt="封面预览" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
             </div>
 

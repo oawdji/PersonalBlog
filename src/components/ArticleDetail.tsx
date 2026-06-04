@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Article } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ChevronLeft, Calendar, Eye, Hash, List, Sparkles } from 'lucide-react';
@@ -13,11 +13,31 @@ interface ArticleDetailProps {
 export function ArticleDetail({ article, onBack, onTagClick, onIncrementViews }: ArticleDetailProps) {
   const [headings, setHeadings] = useState<{ id: string; text: string; level: number }[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string>('');
+  const lastIncrementedId = useRef<string | null>(null);
 
-  // Increment views once on load
+  // 浏览冷却时间：同一篇文章 1 小时内只计 1 次浏览
+  const VIEW_COOLDOWN_MS = 60 * 60 * 1000;
+  const VIEW_STORAGE_KEY = 'greentech_article_views';
+
+  // Increment views once on load（用 ref 防止 React Strict Mode 双重调用，用 localStorage 做 1 小时冷却）
   useEffect(() => {
-    onIncrementViews(article.id);
-    
+    if (lastIncrementedId.current !== article.id) {
+      lastIncrementedId.current = article.id;
+
+      const now = Date.now();
+      const viewMap: Record<string, number> = JSON.parse(
+        localStorage.getItem(VIEW_STORAGE_KEY) || '{}'
+      );
+      const lastView = viewMap[article.id];
+
+      // 没有记录 或 已超过 1 小时冷却期 → 计入浏览
+      if (!lastView || now - lastView > VIEW_COOLDOWN_MS) {
+        viewMap[article.id] = now;
+        localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(viewMap));
+        onIncrementViews(article.id);
+      }
+    }
+
     // Smooth scroll page to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [article.id]);
@@ -93,9 +113,6 @@ export function ArticleDetail({ article, onBack, onTagClick, onIncrementViews }:
 
           {/* Metadata Block */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-zinc-500 dark:text-zinc-400 font-mono mb-4 select-none">
-            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400 font-bold uppercase text-[10px]">
-              {article.category}
-            </span>
             <span className="flex items-center gap-1">
               <Calendar size={13} className="text-zinc-400" />
               {article.createTime}
