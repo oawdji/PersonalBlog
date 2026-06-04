@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
-import { INITIAL_ARTICLES, INITIAL_PROFILE, INITIAL_VISITOR_STATS } from './data';
-import { Article, BloggerProfile, VisitorStats } from './types';
+import {
+  Article, BloggerProfile, VisitorStats,
+  fetchArticles, fetchProfile, fetchStats,
+  saveArticle, deleteArticle, incrementArticleView,
+  saveProfile, recordPV,
+  login, logout, hasToken,
+} from './api/client';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { ArticleCard } from './components/ArticleCard';
@@ -11,83 +16,63 @@ import { TechStackWall } from './components/TechStackWall';
 import { AboutView } from './components/AboutView';
 import { ChevronLeft, ChevronRight, ArrowUpCircle, Sparkles } from 'lucide-react';
 
+/** 加载前的默认资料占位 */
+const EMPTY_PROFILE: BloggerProfile = {
+  name: 'Loading...',
+  avatar: '/images/avatar.jpg',
+  title: '',
+  bio: '',
+  githubUrl: '#',
+  techStack: [],
+};
+
 export default function App() {
-  // --- 1. CORE PERSISTENCE STATES ---
-  const [articles, setArticles] = useState<Article[]>(() => {
-    const saved = localStorage.getItem('greentech_articles');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_ARTICLES;
-  });
-
-  const [profile, setProfile] = useState<BloggerProfile>(() => {
-    const saved = localStorage.getItem('greentech_profile');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_PROFILE;
-  });
-
-  const [visitorStats, setVisitorStats] = useState<VisitorStats[]>(() => {
-    const saved = localStorage.getItem('greentech_stats');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_VISITOR_STATS;
-  });
+  // --- 1. CORE DATA STATES (now from API) ---
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [profile, setProfile] = useState<BloggerProfile>(EMPTY_PROFILE);
+  const [visitorStats, setVisitorStats] = useState<VisitorStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // Dark mode has been deleted and disabled as requested
   const isDarkMode = false;
 
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('greentech_is_admin') === 'true';
-  });
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => hasToken());
 
-  // Save states to local storage on mutation
+  // --- 2. INITIAL DATA LOAD + PV RECORD ---
   useEffect(() => {
-    localStorage.setItem('greentech_articles', JSON.stringify(articles));
-  }, [articles]);
+    let cancelled = false;
 
-  useEffect(() => {
-    localStorage.setItem('greentech_profile', JSON.stringify(profile));
-  }, [profile]);
+    async function loadAll() {
+      try {
+        const [arts, prof, stats] = await Promise.all([
+          fetchArticles(),
+          fetchProfile(),
+          fetchStats(),
+        ]);
 
-  useEffect(() => {
-    localStorage.setItem('greentech_stats', JSON.stringify(visitorStats));
-  }, [visitorStats]);
+        if (cancelled) return;
 
-  useEffect(() => {
-    localStorage.setItem('greentech_theme', 'light');
-    document.documentElement.classList.remove('dark');
-  }, []);
+        setArticles(arts);
+        if (prof) setProfile(prof);
+        setVisitorStats(stats);
 
-  // --- 2. SIMPLE VISIT PV EVENT TRACKING (可选简单埋点) ---
-  useEffect(() => {
-    // Generate simple MM-DD format based on current local time
-    const today = new Date();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const dateStr = `${mm}-${dd}`;
-
-    setVisitorStats((prevStats) => {
-      const statsCopy = [...prevStats];
-      const todayRecordIdx = statsCopy.findIndex((s) => s.date === dateStr);
-
-      if (todayRecordIdx !== -1) {
-        statsCopy[todayRecordIdx] = {
-          ...statsCopy[todayRecordIdx],
-          pv: (statsCopy[todayRecordIdx].pv || 0) + 1
-        };
-      } else {
-        // Drop oldest and push new today element to maintain sliding 7-day stats
-        if (statsCopy.length >= 7) {
-          statsCopy.shift();
-        }
-        statsCopy.push({ date: dateStr, pv: 1 });
+        // 记录一次 PV
+        try {
+          await recordPV();
+          // 记录后刷新统计
+          const updatedStats = await fetchStats();
+          if (!cancelled) setVisitorStats(updatedStats);
+        } catch { /* PV 记录失败不影响主流程 */ }
+      } catch (err: any) {
+        if (!cancelled) setDataError(err.message || '数据加载失败');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      return statsCopy;
-    });
+    }
+
+    loadAll();
+    return () => { cancelled = true; };
   }, []);
 
   // --- 3. FILTER & NAVIGATION STATES ---
@@ -95,7 +80,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [selectedArchive, setSelectedArchive] = useState<string | null>(null); // YYYY-MM
+  const [selectedArchive, setSelectedArchive] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'views'>('date');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
@@ -121,14 +106,14 @@ export default function App() {
     setIsAdminMode(false);
   };
 
-  // Nav to detailed page
+  // Nav to detail page
   const handleSelectArticle = (id: string) => {
     setSelectedArticleId(id);
     setIsAdminMode(false);
     setIsAboutMode(false);
   };
 
-  // Tag filter trigger on click
+  // Tag filter trigger
   const handleTagClick = (tag: string) => {
     setSelectedTag(tag);
     setSelectedCategory(null);
@@ -170,84 +155,94 @@ export default function App() {
     }
   };
 
-  const handleAdminLogin = (password: string): boolean => {
-    if (password === 'admin') {
+  // --- 4. AUTH HANDLERS (async API) ---
+  const handleAdminLogin = async (password: string): Promise<boolean> => {
+    try {
+      await login(password);
       setIsAdmin(true);
-      localStorage.setItem('greentech_is_admin', 'true');
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const handleAdminLogout = () => {
+    logout();
     setIsAdmin(false);
     setIsAdminMode(false);
     setIsAboutMode(false);
-    localStorage.removeItem('greentech_is_admin');
   };
 
-  // Views increment tracking in actual details page
-  const handleIncrementViews = (id: string) => {
-    setArticles((prevArticles) =>
-      prevArticles.map((art) =>
-        art.id === id ? { ...art, views: (art.views || 0) + 1 } : art
-      )
-    );
-  };
-
-  // --- 4. MUTATORS FROM ADMIN ---
-  const handleSaveArticle = (savedArticle: Article) => {
-    setArticles((prev) => {
-      const idx = prev.findIndex((art) => art.id === savedArticle.id);
-      if (idx !== -1) {
-        // Edit flow
-        const updated = [...prev];
-        updated[idx] = savedArticle;
-        return updated;
-      } else {
-        // Add flow
-        return [savedArticle, ...prev];
-      }
-    });
-
-    // Make sure tomorrow's calendar or contribution chart gets incremental score!
-    setVisitorStats((prevStats) => {
-      const statsCopy = [...prevStats];
-      if (statsCopy.length > 0) {
-        const lastIdx = statsCopy.length - 1;
-        statsCopy[lastIdx] = {
-          ...statsCopy[lastIdx],
-          pv: (statsCopy[lastIdx].pv || 0) + 15 // incremental simulated bump for posting an article!
-        };
-      }
-      return statsCopy;
-    });
-  };
-
-  const handleDeleteArticle = (id: string) => {
-    setArticles((prev) => prev.filter((art) => art.id !== id));
-    if (selectedArticleId === id) {
-      setSelectedArticleId(null);
+  // --- 5. MUTATORS (calling API, then refreshing state) ---
+  const handleIncrementViews = async (id: string) => {
+    try {
+      const result = await incrementArticleView(id);
+      setArticles((prev) =>
+        prev.map((art) =>
+          art.id === id ? { ...art, views: result.views } : art
+        )
+      );
+    } catch (err) {
+      console.error('Failed to increment views', err);
     }
   };
 
-  const handleUpdateProfile = (updatedProfile: BloggerProfile) => {
-    setProfile(updatedProfile);
+  const handleSaveArticle = async (savedArticle: Article) => {
+    try {
+      await saveArticle(savedArticle);
+      // Refetch all articles to get the latest state
+      const updated = await fetchArticles(true);
+      setArticles(updated);
+
+      // Increment stats bump for posting
+      setVisitorStats((prevStats) => {
+        const statsCopy = [...prevStats];
+        if (statsCopy.length > 0) {
+          const lastIdx = statsCopy.length - 1;
+          statsCopy[lastIdx] = {
+            ...statsCopy[lastIdx],
+            pv: (statsCopy[lastIdx].pv || 0) + 15,
+          };
+        }
+        return statsCopy;
+      });
+    } catch (err) {
+      console.error('Failed to save article', err);
+    }
   };
 
-  // --- 5. DATA CHUNKING & FILTERING (VISITOR ONLY DISPLAY PUBLISHED) ---
+  const handleDeleteArticle = async (id: string) => {
+    try {
+      await deleteArticleApi(id);
+      setArticles((prev) => prev.filter((art) => art.id !== id));
+      if (selectedArticleId === id) {
+        setSelectedArticleId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete article', err);
+    }
+  };
+
+  // Need a wrapper since the import name conflicts
+  async function deleteArticleApi(id: string) {
+    return deleteArticle(id);
+  }
+
+  const handleUpdateProfile = async (updatedProfile: BloggerProfile) => {
+    try {
+      await saveProfile(updatedProfile);
+      setProfile(updatedProfile);
+    } catch (err) {
+      console.error('Failed to update profile', err);
+    }
+  };
+
+  // --- 6. DATA FILTERING & PAGINATION ---
   const filteredArticles = articles
     .filter((art) => {
-      // Drafts are strictly removed from visitor's query list
       if (art.status !== 'published') return false;
-
-      // Category filter
       if (selectedCategory && art.category !== selectedCategory) return false;
-
-      // Tag filter
       if (selectedTag && !art.tags.includes(selectedTag)) return false;
-
-      // Month Archive filter (e.g. format: "2026-06")
       if (selectedArchive) {
         const dateParts = art.createTime.split(' ')[0].split('-');
         if (dateParts.length >= 2) {
@@ -257,27 +252,21 @@ export default function App() {
           return false;
         }
       }
-
-      // Keyword standard search (case insensitive check across Title, Summary, and Content)
       if (searchQuery.trim()) {
         const keyword = searchQuery.toLowerCase();
-        const matchesTitle = art.title.toLowerCase().includes(keyword);
-        const matchesSummary = art.summary.toLowerCase().includes(keyword);
-        const matchesContent = art.content.toLowerCase().includes(keyword);
-        return matchesTitle || matchesSummary || matchesContent;
+        return (
+          art.title.toLowerCase().includes(keyword) ||
+          art.summary.toLowerCase().includes(keyword) ||
+          art.content.toLowerCase().includes(keyword)
+        );
       }
-
       return true;
     })
-    // Sort dynamically by views (clicks) or creation time
     .sort((a, b) => {
-      if (sortBy === 'views') {
-        return (b.views || 0) - (a.views || 0);
-      }
+      if (sortBy === 'views') return (b.views || 0) - (a.views || 0);
       return b.createTime.localeCompare(a.createTime);
     });
 
-  // Pagination slice
   const indexOfLastPost = currentPage * postsPerPage;
   const indexOfFirstPost = indexOfLastPost - postsPerPage;
   const currentPagedArticles = filteredArticles.slice(indexOfFirstPost, indexOfLastPost);
@@ -288,10 +277,8 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Active details object resolve
   const activeArticle = articles.find((art) => art.id === selectedArticleId);
 
-  // Archive title helper text
   const getFilterHelperTitle = () => {
     if (selectedCategory) return `分类：${selectedCategory}`;
     if (selectedTag) return `标签：#${selectedTag}`;
@@ -303,7 +290,7 @@ export default function App() {
     return null;
   };
 
-  // Scroll to Top trigger
+  // Scroll to Top
   const [showScrollTopBtn, setShowScrollTopBtn] = useState(false);
   useEffect(() => {
     const handleScrollHide = () => {
@@ -317,10 +304,43 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // --- LOADING STATE ---
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#fcfdfc] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-zinc-500 font-mono">正在加载 GreenTech Blog...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- ERROR STATE ---
+  if (dataError && articles.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#fcfdfc] flex items-center justify-center">
+        <div className="text-center space-y-4 p-8 max-w-md">
+          <div className="text-3xl">⚠️</div>
+          <h2 className="text-lg font-bold text-zinc-800">数据加载失败</h2>
+          <p className="text-xs text-zinc-500 font-mono">{dataError}</p>
+          <p className="text-xs text-zinc-400">
+            请确保后端服务已启动：<code className="bg-zinc-100 px-2 py-0.5 rounded">npm run dev:api</code>
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg cursor-pointer hover:bg-emerald-700"
+          >
+            重新加载
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fcfdfc] dark:bg-[#090d09] text-zinc-800 dark:text-zinc-200 transition-colors duration-300 font-sans flex flex-col justify-between antialiased">
-      
-      {/* Dynamic Header / Navbar */}
+
       <Navbar
         isDarkMode={isDarkMode}
         onToggleTheme={() => {}}
@@ -342,10 +362,8 @@ export default function App() {
         onToggleAbout={handleToggleAbout}
       />
 
-      {/* Main Core Content wrapper */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {isAdminMode ? (
-          /* Render Admin dashboard */
           <AdminDashboard
             articles={articles}
             profile={profile}
@@ -357,13 +375,11 @@ export default function App() {
             isDarkMode={isDarkMode}
           />
         ) : isAboutMode ? (
-          /* Render About Me Page */
-          <AboutView 
-            profile={profile} 
-            onBack={handleResetFilters} 
+          <AboutView
+            profile={profile}
+            onBack={handleResetFilters}
           />
         ) : selectedArticleId && activeArticle ? (
-          /* Render Blog Post details page */
           <ArticleDetail
             article={activeArticle}
             onBack={() => setSelectedArticleId(null)}
@@ -371,10 +387,8 @@ export default function App() {
             onIncrementViews={handleIncrementViews}
           />
         ) : (
-          /* Render double-panel lists & widgets layout */
           <div className="space-y-8">
-            
-            {/* Top banner filter helper indicators */}
+
             {getFilterHelperTitle() && (
               <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-center justify-between select-none animate-scale-up">
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300">
@@ -393,11 +407,9 @@ export default function App() {
             )}
 
             <div className="flex flex-col lg:flex-row gap-8 items-start">
-              
-              {/* Left Column Section: Articles Feed */}
+
               <div className="flex-1 space-y-6 w-full">
-                
-                {/* Visual Header row */}
+
                 <div className="border-b border-zinc-100 pb-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-lg font-bold text-zinc-900 tracking-tight flex items-center gap-2">
@@ -407,31 +419,20 @@ export default function App() {
                     <p className="text-[11px] text-zinc-500 mt-0.5">记录程序开发实践、深度洞察以及心智模型</p>
                   </div>
 
-                  {/* Sorting dropdown/controls */}
                   <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
                     <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 select-none text-[11px]">
                       <button
-                        onClick={() => {
-                          setSortBy('date');
-                          setCurrentPage(1);
-                        }}
+                        onClick={() => { setSortBy('date'); setCurrentPage(1); }}
                         className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                          sortBy === 'date'
-                            ? 'bg-white text-emerald-700 font-bold shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-800'
+                          sortBy === 'date' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
                         }`}
                       >
                         按发布时间
                       </button>
                       <button
-                        onClick={() => {
-                          setSortBy('views');
-                          setCurrentPage(1);
-                        }}
+                        onClick={() => { setSortBy('views'); setCurrentPage(1); }}
                         className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                          sortBy === 'views'
-                            ? 'bg-white text-emerald-700 font-bold shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-800'
+                          sortBy === 'views' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
                         }`}
                       >
                         按点击量
@@ -443,7 +444,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Articles mapping */}
                 <div className="space-y-4">
                   {currentPagedArticles.map((article) => (
                     <ArticleCard
@@ -467,7 +467,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Pagination Controls Bar */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-900 pt-6 select-none font-mono text-xs">
                     <button
@@ -487,9 +486,7 @@ export default function App() {
                             key={pageNum}
                             onClick={() => handlePageChange(pageNum)}
                             className={`w-8 h-8 rounded-lg font-bold transition-colors cursor-pointer ${
-                              isCurrent
-                                ? 'bg-emerald-600 text-white'
-                                : 'text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                              isCurrent ? 'bg-emerald-600 text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                             }`}
                           >
                             {pageNum}
@@ -509,7 +506,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Right Column Section: Widgets & Bio */}
               <Sidebar
                 profile={profile}
                 articles={articles}
@@ -527,7 +523,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Scroll-to-Top Button */}
       {showScrollTopBtn && (
         <button
           onClick={scrollToTop}
@@ -538,7 +533,6 @@ export default function App() {
         </button>
       )}
 
-      {/* Footer copyright */}
       <footer className="w-full bg-white dark:bg-[#060a06] border-t border-zinc-100 dark:border-zinc-900/60 py-6 text-center select-none text-xs text-zinc-400 dark:text-zinc-500 mt-12">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono">
           <div className="flex items-center gap-1">
@@ -547,7 +541,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <span>Powered by</span>
-            <span className="text-zinc-600 dark:text-zinc-300 font-bold hover:text-emerald-500 cursor-pointer transition-colors">React 19 + Vite 6 + Tailwind + ECharts</span>
+            <span className="text-zinc-600 dark:text-zinc-300 font-bold hover:text-emerald-500 cursor-pointer transition-colors">React 19 + Vite 6 + Express + SQLite</span>
           </div>
         </div>
       </footer>

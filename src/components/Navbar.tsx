@@ -7,7 +7,7 @@ interface NavbarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   isAdmin: boolean;
-  onLogin: (password: string) => boolean;
+  onLogin: (password: string) => Promise<boolean>;
   onLogout: () => void;
   onResetView: () => void; // Reset to article list
   onGoToAdmin: () => void; // Show admin page
@@ -34,14 +34,18 @@ export function Navbar({
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = onLogin(password);
+    setLoginLoading(true);
+    const success = await onLogin(password);
+    setLoginLoading(false);
     if (success) {
       setShowLoginModal(false);
       setPassword('');
       setLoginError(false);
-      onGoToAdmin(); // auto navigate to admin after login
+      onGoToAdmin();
     } else {
       setLoginError(true);
     }
@@ -213,9 +217,10 @@ export function Navbar({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 rounded-lg cursor-pointer transition-colors shadow-md shadow-emerald-500/10"
+                  disabled={loginLoading}
+                  className="flex-1 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 rounded-lg cursor-pointer transition-colors shadow-md shadow-emerald-500/10 disabled:opacity-60 disabled:cursor-wait"
                 >
-                  确认鉴权
+                  {loginLoading ? '验证中...' : '确认鉴权'}
                 </button>
               </div>
             </form>
