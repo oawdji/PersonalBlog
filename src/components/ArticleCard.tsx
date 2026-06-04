@@ -1,6 +1,6 @@
 import React from 'react';
 import { Article } from '../types';
-import { Calendar, Clock, Eye, Hash, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { Calendar, Eye, Hash, ArrowUpRight, ChevronRight } from 'lucide-react';
 
 interface ArticleCardProps {
   key?: string;
@@ -10,8 +10,6 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article, onSelect, onTagClick }: ArticleCardProps) {
-  // Read duration visual color
-  const readDurationText = article.readTime ? `${article.readTime} 分钟阅读` : '估算中';
 
   return (
     <article 
@@ -47,10 +45,6 @@ export function ArticleCard({ article, onSelect, onTagClick }: ArticleCardProps)
             <span className="flex items-center gap-1">
               <Calendar size={12} className="text-zinc-400" />
               {article.createTime.split(' ')[0]}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock size={12} className="text-zinc-400" />
-              {readDurationText}
             </span>
             <span className="flex items-center gap-1">
               <Eye size={12} className="text-zinc-400" />

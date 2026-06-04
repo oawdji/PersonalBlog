@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Article } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { ChevronLeft, Calendar, Clock, Eye, Hash, List, Sparkles } from 'lucide-react';
+import { ChevronLeft, Calendar, Eye, Hash, List, Sparkles } from 'lucide-react';
 
 interface ArticleDetailProps {
   article: Article;
@@ -99,10 +99,6 @@ export function ArticleDetail({ article, onBack, onTagClick, onIncrementViews }:
             <span className="flex items-center gap-1">
               <Calendar size={13} className="text-zinc-400" />
               {article.createTime}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock size={13} className="text-zinc-400" />
-              {article.readTime} 分钟阅读
             </span>
             <span className="flex items-center gap-1">
               <Eye size={13} className="text-zinc-400" />
