@@ -25,8 +25,8 @@ if (!existingProfile) {
   `).run(
     'GreenGlue',
     '/images/avatar.jpg',
-    'Full-Stack Engineer & Technical Writer',
-    '热爱开源与极简主义。长期专注于 Vue 3、React、Vite 以及云原生技术生态的研究，立志于用优雅的代码构建美好的数字化世界。',
+    'Web Developer',
+    '前端开发，正在学习并使用 Vue3 和 React19，热爱前端技术，坚持长期跟进技术迭代。',
     'https://github.com/oawdji',
     JSON.stringify([
       { name: 'JavaScript', category: 'Language', icon: 'Code', proficiency: 5 },
@@ -338,28 +338,34 @@ export default defineConfig({
   console.log(`  ⏭️  文章已存在 (${articleCount.count} 篇)，跳过`);
 }
 
-// --- Visitor Stats ---
-const statCount = sqlite.prepare('SELECT COUNT(*) as count FROM visitor_stats').get() as any;
-if (statCount.count === 0) {
-  const insertStat = sqlite.prepare('INSERT INTO visitor_stats (date, pv) VALUES (?, ?)');
-  const stats = [
-    { date: '05-28', pv: 145 },
-    { date: '05-29', pv: 189 },
-    { date: '05-30', pv: 210 },
-    { date: '05-31', pv: 165 },
-    { date: '06-01', pv: 280 },
-    { date: '06-02', pv: 310 },
-    { date: '06-03', pv: 345 },
-  ];
-  const insertStatsMany = sqlite.transaction(() => {
-    for (const s of stats) {
-      insertStat.run(s.date, s.pv);
+// --- Page Views（种子事件，用于近 7 日统计实时计算） ---
+const pvCount = sqlite.prepare('SELECT COUNT(*) as count FROM page_views').get() as any;
+if (pvCount.count === 0) {
+  const insertPV = sqlite.prepare('INSERT INTO page_views (created_at) VALUES (?)');
+  // 过去 6 天 + 今天的模拟访问事件
+  const now = new Date();
+  const dailyPV = [145, 189, 210, 165, 280, 310, 345]; // 从 6 天前到今天
+  let totalInserted = 0;
+  const insertPVs = sqlite.transaction(() => {
+    for (let i = 6; i >= 0; i--) {
+      const count = dailyPV[6 - i];
+      const day = new Date(now);
+      day.setDate(day.getDate() - i);
+      const baseDate = day.toISOString().slice(0, 10); // YYYY-MM-DD
+      for (let j = 0; j < count; j++) {
+        // 分散在一天的不同时刻
+        const hour = String(Math.floor(Math.random() * 24)).padStart(2, '0');
+        const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+        const second = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+        insertPV.run(`${baseDate}T${hour}:${minute}:${second}.000Z`);
+        totalInserted++;
+      }
     }
   });
-  insertStatsMany();
-  console.log(`  ✅ ${stats.length} 条访客统计已写入`);
+  insertPVs();
+  console.log(`  ✅ ${totalInserted} 条页面访问事件已写入（覆盖近 7 天）`);
 } else {
-  console.log(`  ⏭️  访客统计已存在 (${statCount.count} 条)，跳过`);
+  console.log(`  ⏭️  页面访问事件已存在 (${pvCount.count} 条)，跳过`);
 }
 
 console.log('\n🌱 种子数据写入完成！');

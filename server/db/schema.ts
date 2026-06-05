@@ -27,9 +27,8 @@ export const profile = sqliteTable('profile', {
   techStack: text('tech_stack').notNull(), // JSON 序列化
 });
 
-/** 访客统计表 */
-export const visitorStats = sqliteTable('visitor_stats', {
+/** 页面访问事件表（每次访问记录一行，统计时实时聚合） */
+export const pageViews = sqliteTable('page_views', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  date: text('date').notNull(), // MM-DD 格式
-  pv: integer('pv').notNull().default(0),
+  createdAt: text('created_at').notNull(), // ISO 时间戳 2026-06-04T12:30:00.000Z
 });

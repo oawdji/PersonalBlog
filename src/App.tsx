@@ -57,13 +57,8 @@ export default function App() {
         if (prof) setProfile(prof);
         setVisitorStats(stats);
 
-        // 记录一次 PV
-        try {
-          await recordPV();
-          // 记录后刷新统计
-          const updatedStats = await fetchStats();
-          if (!cancelled) setVisitorStats(updatedStats);
-        } catch { /* PV 记录失败不影响主流程 */ }
+        // 记录一次 PV（插入事件，统计页面会实时计算）
+        try { await recordPV(); } catch { /* PV 记录失败不影响主流程 */ }
       } catch (err: any) {
         if (!cancelled) setDataError(err.message || '数据加载失败');
       } finally {
@@ -196,19 +191,6 @@ export default function App() {
       // Refetch all articles to get the latest state
       const updated = await fetchArticles(true);
       setArticles(updated);
-
-      // Increment stats bump for posting
-      setVisitorStats((prevStats) => {
-        const statsCopy = [...prevStats];
-        if (statsCopy.length > 0) {
-          const lastIdx = statsCopy.length - 1;
-          statsCopy[lastIdx] = {
-            ...statsCopy[lastIdx],
-            pv: (statsCopy[lastIdx].pv || 0) + 15,
-          };
-        }
-        return statsCopy;
-      });
     } catch (err) {
       console.error('Failed to save article', err);
     }
@@ -346,7 +328,7 @@ export default function App() {
 
       <Navbar
         isDarkMode={isDarkMode}
-        onToggleTheme={() => {}}
+        onToggleTheme={() => { }}
         searchQuery={searchQuery}
         onSearchChange={(q) => {
           setSearchQuery(q);
@@ -419,24 +401,22 @@ export default function App() {
                       <span className="w-1.5 h-3.5 rounded bg-emerald-500"></span>
                       文章精选 Feed
                     </h2>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">记录程序开发实践、深度洞察以及心智模型</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">记录程序开发实践和心得</p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
                     <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 select-none text-[11px]">
                       <button
                         onClick={() => { setSortBy('date'); setCurrentPage(1); }}
-                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                          sortBy === 'date' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${sortBy === 'date' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
+                          }`}
                       >
                         按发布时间
                       </button>
                       <button
                         onClick={() => { setSortBy('views'); setCurrentPage(1); }}
-                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                          sortBy === 'views' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${sortBy === 'views' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
+                          }`}
                       >
                         按点击量
                       </button>
@@ -488,9 +468,8 @@ export default function App() {
                           <button
                             key={pageNum}
                             onClick={() => handlePageChange(pageNum)}
-                            className={`w-8 h-8 rounded-lg font-bold transition-colors cursor-pointer ${
-                              isCurrent ? 'bg-emerald-600 text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                            }`}
+                            className={`w-8 h-8 rounded-lg font-bold transition-colors cursor-pointer ${isCurrent ? 'bg-emerald-600 text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                              }`}
                           >
                             {pageNum}
                           </button>
