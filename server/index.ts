@@ -36,8 +36,8 @@ app.get(/^\/(?!api\/|uploads\/).*/, (_req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 GreenTech Blog API server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 GreenTech Blog API server running on http://0.0.0.0:${PORT}`);
   console.log(`   Database: .data/greentech.db`);
   console.log(`   Uploads:  public/uploads/`);
 });

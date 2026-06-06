@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import { Article, BloggerProfile, VisitorStats, TechItem } from '../types';
-import { uploadCoverImage } from '../api/client';
+import { uploadCoverImage, uploadAvatar } from '../api/client';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import {
   Plus, Edit, Trash2, Save, FileText, Layout, Users,
@@ -79,6 +79,8 @@ export function AdminDashboard({
   const [profTitle, setProfTitle] = useState(profile.title);
   const [profBio, setProfBio] = useState(profile.bio);
   const [profGithub, setProfGithub] = useState(profile.githubUrl);
+  const [profAvatarUploading, setProfAvatarUploading] = useState(false);
+  const profAvatarInputRef = useRef<HTMLInputElement>(null);
   // Stack editing
   const [profTech, setProfTech] = useState<TechItem[]>([...profile.techStack]);
   const [saveProfileSuccess, setSaveProfileSuccess] = useState(false);
@@ -288,6 +290,23 @@ export function AdminDashboard({
     if (deleteConfirmId) {
       onDeleteArticle(deleteConfirmId);
       setDeleteConfirmId(null);
+    }
+  };
+
+  // Blogger profile updating
+  /** 上传头像图片 */
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProfAvatarUploading(true);
+    try {
+      const result = await uploadAvatar(file);
+      setProfAvatar(result.url);
+    } catch (err: any) {
+      alert(err.message || '头像上传失败');
+    } finally {
+      setProfAvatarUploading(false);
+      if (profAvatarInputRef.current) profAvatarInputRef.current.value = '';
     }
   };
 
@@ -799,14 +818,51 @@ export function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-650 mb-1">头像图片 URL</label>
-                  <input
-                    type="url"
-                    required
-                    value={profAvatar}
-                    onChange={(e) => setProfAvatar(e.target.value)}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs sm:text-sm text-zinc-900 dark:text-zinc-55 focus:outline-none focus:border-emerald-500 rounded-lg"
-                  />
+                  <label className="block text-xs font-semibold text-zinc-650 mb-1">头像图片</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={profAvatarInputRef}
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => profAvatarInputRef.current?.click()}
+                      disabled={profAvatarUploading}
+                      className="shrink-0 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs text-zinc-600 hover:text-emerald-600 hover:border-emerald-500/30 disabled:opacity-50 cursor-pointer transition-colors flex items-center gap-1.5"
+                    >
+                      {profAvatarUploading ? (
+                        <><span className="w-3 h-3 border border-emerald-500 border-t-transparent rounded-full animate-spin" /> 上传中</>
+                      ) : (
+                        <><Upload size={13} /> 上传</>
+                      )}
+                    </button>
+                    <input
+                      type="url"
+                      required
+                      value={profAvatar}
+                      onChange={(e) => setProfAvatar(e.target.value)}
+                      placeholder="或粘贴外部头像 URL..."
+                      className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs sm:text-sm text-zinc-900 dark:text-zinc-55 focus:outline-none focus:border-emerald-500 rounded-lg"
+                    />
+                    {profAvatar && (
+                      <button
+                        type="button"
+                        onClick={() => setProfAvatar('')}
+                        className="shrink-0 p-1.5 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer transition-colors"
+                        title="清除头像"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {profAvatar && (
+                    <div className="mt-2 w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500/30 bg-zinc-100">
+                      <img src={profAvatar} alt="头像预览" className="w-full h-full object-cover" />
+                    </div>
+                  )}
                 </div>
               </div>
 

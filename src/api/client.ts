@@ -196,3 +196,23 @@ export async function uploadCoverImage(file: File): Promise<{ url: string }> {
 
   return res.json();
 }
+
+/** 上传博主头像，返回可访问的相对路径（旧头像文件会被自动删除） */
+export async function uploadAvatar(file: File): Promise<{ url: string }> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}/upload/avatar`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: '上传失败' }));
+    throw new Error(body.error || `上传失败 (${res.status})`);
+  }
+
+  return res.json();
+}
