@@ -840,11 +840,10 @@ export function AdminDashboard({
                       )}
                     </button>
                     <input
-                      type="url"
-                      required
+                      type="text"
                       value={profAvatar}
                       onChange={(e) => setProfAvatar(e.target.value)}
-                      placeholder="或粘贴外部头像 URL..."
+                      placeholder="上传图片或粘贴 URL..."
                       className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs sm:text-sm text-zinc-900 dark:text-zinc-55 focus:outline-none focus:border-emerald-500 rounded-lg"
                     />
                     {profAvatar && (
@@ -883,10 +882,10 @@ export function AdminDashboard({
                     <Github size={12} /> GitHub 主页 Url
                   </label>
                   <input
-                    type="url"
-                    required
+                    type="text"
                     value={profGithub}
                     onChange={(e) => setProfGithub(e.target.value)}
+                    placeholder="https://github.com/你的用户名"
                     className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-xs sm:text-sm text-zinc-900 dark:text-zinc-55 focus:outline-none focus:border-emerald-500 rounded-lg"
                   />
                 </div>
